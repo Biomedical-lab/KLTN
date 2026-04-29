@@ -1,28 +1,33 @@
 """
-🚗 Code mẫu đếm xe cơ bản — Phiên bản đơn giản
-KLTN — Lớp CDLT422CNTT — GVHD: Cô Nguyễn Thị Lượt
+🚗 Đếm xe real-time qua điện thoại — Code mẫu
+Cuộc thi: "Phát triển hệ thống nhận diện giao thông" — BETU 2026
 
 Cách dùng:
-  1. Cài DroidCam trên điện thoại + laptop
-  2. Kết nối cùng WiFi
-  3. Chạy: python count_vehicles.py
-  4. Nhấn Q để thoát
+  1. Cài app DroidCam trên điện thoại (Android/iOS)
+  2. Cài DroidCam Client trên laptop (dev47apps.com)
+  3. Kết nối cùng WiFi → mở DroidCam → ghi nhớ IP
+  4. Chạy: python count_vehicles.py
+  5. Nhấn Q để thoát
 """
 from ultralytics import YOLO
 import cv2
-from config import VEHICLE_CLASSES, MODEL_PATH, CONFIDENCE_THRESHOLD, CAMERA_SOURCE
+
+# ===== CẤU HÌNH CAMERA =====
+# Cách 1: DroidCam (cài DroidCam Client → điện thoại kết nối laptop)
+cap = cv2.VideoCapture(0)
+
+# Cách 2: IP Camera (dùng app DroidCam trên điện thoại)
+# cap = cv2.VideoCapture("http://192.168.1.x:8080/video")
+
+# Cách 3: DroidCam qua IP trực tiếp
+# cap = cv2.VideoCapture("http://192.168.1.x:4747/video")
 
 # ===== LOAD MODEL =====
-model = YOLO(MODEL_PATH)  # Tự động tải lần đầu
-print(f"✅ Đã tải model: {MODEL_PATH}")
+model = YOLO("yolov8n.pt")  # Tự động tải lần đầu (~6MB)
 
-# ===== KẾT NỐI CAMERA =====
-cap = cv2.VideoCapture(CAMERA_SOURCE)
-if not cap.isOpened():
-    print("❌ Không thể kết nối camera!")
-    print("   → Kiểm tra DroidCam hoặc đổi CAMERA_SOURCE trong config.py")
-    exit()
-print(f"✅ Đã kết nối camera: {CAMERA_SOURCE}")
+# Các class xe trong COCO dataset
+VEHICLES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck", 1: "bicycle"}
+COLORS = {2: (46,204,113), 3: (231,76,60), 5: (52,152,219), 7: (243,156,18), 1: (155,89,182)}
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -30,45 +35,30 @@ while cap.isOpened():
         break
 
     # Nhận diện phương tiện
-    results = model(frame, conf=CONFIDENCE_THRESHOLD, verbose=False)[0]
+    results = model(frame, verbose=False)[0]
 
     # Đếm và vẽ bounding box
-    count = {info["name"]: 0 for info in VEHICLE_CLASSES.values()}
-
+    count = {name: 0 for name in VEHICLES.values()}
     for box in results.boxes:
         cls_id = int(box.cls[0])
-        if cls_id in VEHICLE_CLASSES:
-            info = VEHICLE_CLASSES[cls_id]
-            name = info["name"]
-            color = info["color"]
+        if cls_id in VEHICLES:
+            name = VEHICLES[cls_id]
             count[name] += 1
-
-            # Vẽ bounding box
             x1, y1, x2, y2 = map(int, box.xyxy[0])
             conf = float(box.conf[0])
+            color = COLORS.get(cls_id, (0, 255, 0))
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+            cv2.putText(frame, f"{name} {conf:.0%}", (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
-            # Vẽ nhãn
-            label = f"{name} {conf:.0%}"
-            (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)
-            cv2.rectangle(frame, (x1, y1 - h - 10), (x1 + w, y1), color, -1)
-            cv2.putText(frame, label, (x1, y1 - 5),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
-
-    # Hiển thị tổng đếm
+    # Hiển thị số đếm
     total = sum(count.values())
-    info_text = f"Tong: {total}"
-    for name, num in count.items():
-        if num > 0:
-            info_text += f" | {name}: {num}"
-    cv2.putText(frame, info_text, (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+    info = f"Total: {total} | " + " | ".join(f"{k}: {v}" for k, v in count.items() if v > 0)
+    cv2.putText(frame, info, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
-    # Hiển thị
-    cv2.imshow("KLTN - Dem xe (Q de thoat)", frame)
+    cv2.imshow("Vehicle Counter - BETU 2026 (Q to quit)", frame)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
 cap.release()
 cv2.destroyAllWindows()
-print("✅ Đã thoát chương trình.")

@@ -1,32 +1,16 @@
-# Byte-compiled / optimized
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
-
-# Virtual environment
 venv/
-env/
 .venv/
 
 # IDE
 .idea/
 .vscode/
-*.swp
-*.swo
 
-# Model files (quá lớn để push lên GitHub)
+# Model files (tải tự động khi chạy)
 *.pt
-!yolov8n.pt
 
-# Results (dữ liệu kết quả tạm)
-results/*.csv
-results/*.xlsx
-
-# OS files
+# OS
 .DS_Store
 Thumbs.db
-desktop.ini
-
-# Temp
-*.tmp
-*.bak
